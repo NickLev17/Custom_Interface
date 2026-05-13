@@ -144,7 +144,7 @@ int main()
     };
     std::unique_ptr<IMovingObject> basePtr = std::make_unique<SpaceShip>(
         Point(12, 5), // Позиция
-        vec,          // Вектор скорости (например, движение вправо)
+        vec,          // Вектор скорости 
         30,           // угловая скорость
         30,           // номер направления
         5             // направление
@@ -156,7 +156,7 @@ int main()
 
     std::unique_ptr<IRotatingObject> basePtr_2 = std::make_unique<SpaceShip>(
         Point(12, 5), // Позиция
-        vec,          // Вектор скорости (например, движение вправо)
+        vec,          // Вектор скорости 
         30,           // угловая скорость
         30,           // номер направления
         5             // направление
