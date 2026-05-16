@@ -137,6 +137,30 @@ public:
     }
 };
 
+template<typename T>
+ class UObject
+{
+std::unordered_map<string,T*> _properties;
+ public:
+T* getProperty(const string& key)
+{
+     auto it = _properties.find(key);
+        if (it != _properties.end())
+        return it->second;
+            //return it->second.get();
+        return nullptr;
+}
+void setProperty(const string& key, T* newValue)
+{
+    if((newValue!=nullptr)&&(!key.empty()))
+    {
+   _properties.emplace(key, newValue);
+    
+}
+}
+};
+
+
 int main()
 {
     std::vector<Point> vec{
