@@ -161,6 +161,36 @@ void setProperty(const string& key, T* newValue)
 };
 
 
+class MovableAdapter : public IMovingObject
+{
+    UObject <std::any*> _obj;
+    public:
+  MovableAdapter(UObject<std::any> otherObject)
+    {
+_obj=otherObject;
+    }
+
+    Point getPosition()
+    {
+  return Point(*std::any_cast<std::vector<Point>>(_obj.getProperty("Position")));
+   }
+
+ void setPosition(vector<Point> newVec)
+ {
+_obj.setProperty("Position",newVec);
+ }
+
+ vector<Point> getVeclocity()
+ {
+   int d = std::any_cast<int>(_obj.getProperty("Direction"));
+   int n = std::any_cast<int>(_obj.getProperty("DirectionNumber"));
+   int v= std::any_cast<int>(_obj.getProperty("Veclocity"));
+
+    return vector<Point>(v*cos(double(d)/(360*n)),v*sin(double(d)/(360*n)));
+ }
+};
+
+
 int main()
 {
     std::vector<Point> vec{
