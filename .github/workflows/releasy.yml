@@ -16,33 +16,25 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtest-dev cmake build-essential
-
-      - name: Build Google Test libraries
-        run: |
-          cd /usr/src/googletest/googletest
-          sudo mkdir build && cd build
-          sudo cmake ..
-          sudo make
-          sudo cp lib/libgtest* /usr/lib/
+          sudo apt-get install -y cmake build-essential
 
       - name: Configure project with CMake (in build folder)
         run: |
           mkdir -p build
           cd build
-          cmake .. -DPATCH_VERSION=${{ github.run_number }} -DWITH_BOOST_TEST=ON
+          cmake .. # Переменные PATCH_VERSION и WITH_BOOST_TEST убраны, так как они не используются в CMakeLists.txt
 
       - name: Build project (build all targets)
         run: cmake --build build
 
       - name: Run Google Tests
-        run: ctest -R --output-on-failure --test-dir build
+        run: ctest --test-dir build
 
-      - name: Find generated .deb files
-        run: find build -name '*.deb' -ls
-
-      - name: Build package
+      - name: Build package (создаем .deb)
         run: cmake --build build --target package
+
+      - name: Find generated .deb files (для проверки)
+        run: find build -name 'tests-0.0.1-Linux.deb' -ls
 
       - name: Create Release
         id: create_release
@@ -55,13 +47,13 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
+      - name: Upload Release Asset (загружаем .deb в релиз)
         id: upload_release_asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: build/tests-0.0.${{ github.run_number }}-Linux.deb
-          asset_name: tests-0.0.${{ github.run_number }}-Linux.deb
+          asset_path: build/tests-0.0.1-Linux.deb # Имя должно совпадать с тем, что задано в CPack!
+          asset_name: tests-0.0.1-Linux.deb
           asset_content_type: application/vnd.debian.binary-package
