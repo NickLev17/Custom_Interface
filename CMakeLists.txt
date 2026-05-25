@@ -1,15 +1,10 @@
-cmake_minimum_required(VERSION 3.14)
-project(MovingObjectProject VERSION 1.0)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(GTest CONFIG QUIET)
+
 if(NOT GTest_FOUND)
     message(STATUS "GTest не найден в системе. Будет скачан и собран из исходников.")
     include(FetchContent)
-
+    
     FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/release-1.15.1.zip
@@ -17,6 +12,20 @@ if(NOT GTest_FOUND)
 
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
+
+
+    if(NOT TARGET GTest::gmock_main)
+        add_library(GTest::gmock_main ALIAS gmock_main)
+    endif()
+    if(NOT TARGET GTest::gmock)
+        add_library(GTest::gmock ALIAS gmock)
+    endif()
+    if(NOT TARGET GTest::gtest_main)
+        add_library(GTest::gtest_main ALIAS gtest_main)
+    endif()
+    if(NOT TARGET GTest::gtest)
+        add_library(GTest::gtest ALIAS gtest)
+    endif()
 endif()
 
 add_library(MovingLogicLib
@@ -25,14 +34,14 @@ add_library(MovingLogicLib
 )
 target_include_directories(MovingLogicLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
+
 add_executable(RunTests tests/test_main.cpp)
 target_include_directories(RunTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 
 target_link_libraries(RunTests PRIVATE
-    GTest::gmock_main # Эта цель включает в себя и gtest_main, и gmock
+    GTest::gmock_main # Эта цель тянет за собой gtest_main и gmock
     MovingLogicLib
-    pthread
 )
 
 
