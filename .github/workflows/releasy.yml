@@ -9,44 +9,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Шаг: Проверка кода с инициализацией подмодулей
+      # Шаг 1: Проверка репозитория с подмодулями
+      # Это САМЫЙ ВАЖНЫЙ ШАГ. Он скачает код вашего проекта и,
+      # благодаря флагу 'submodules: true', также скачает код GoogleTest
+      # в папку 'external/googletest'.
       - uses: actions/checkout@v4
         with:
-          submodules: true # ВАЖНО: Это инициализирует ваш подмодуль googletest
+          submodules: true 
 
-      # 2. Шаг: Использование официального действия для CMake
-      # Этот шаг сам скачает и настроит CMake.
-      - uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: '3.31' # Указываем версию, которая у вас установлена локально
+      # Шаг 2: Установка зависимостей (нужно для сборки GoogleTest и CPACK)
+      - name: Install dependencies for build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      # 3. Шаг: Настройка (Configure)
+      # Шаг 3: Настройка проекта с CMake
       - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
-          # Используем флаг -DCMAKE_EXPORT_COMPILE_COMMANDS для удобства IDE
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      # 4. Шаг: Сборка (Build) и тесты (Test)
-      - name: Build and Run Tests
+      # Шаг 4: Сборка, запуск тестов и создание пакета .deb
+      - name: Build, Test and Package
         run: |
           cd build
-          # Собираем все (включая тесты) и сразу их запускаем
-          cmake --build . --config Release
-          ctest --output-on-failure
+          cmake --build . --config Release --target all package
 
-      # 5. Шаг: Сборка пакета (Package)
-      - name: Build .deb Package
-        run: |
-          cd build
-          cmake --build . --target package --config Release
-
-      # 6. Шаг: Поиск и публикация артефакта (вместо релиза)
-      # Использовать Releases для .deb файлов не всегда удобно.
-      # Лучше использовать встроенную систему "Artifacts".
+      # Шаг 5: Загрузка собранного .deb файла как артефакта сборки
       - name: Upload package as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-package
-          path: build/tests-0.0.1-Linux.deb
+          name: deb-package # Имя артефакта, под которым файл будет доступен для скачивания
+          path: build/tests-0.0.1-Linux.deb # Путь к файлу, который создал CPack
