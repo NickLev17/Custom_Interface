@@ -1,61 +1,41 @@
-cmake_minimum_required(VERSION 3.14)
-project(MovingObjectProject VERSION 1.0)
+cmake_minimum_required(VERSION 3.11)
 
+project(YourProjectName)
+
+# Включаем поддержку C++17 (или другой версии по необходимости)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
-enable_testing()
+# --- Настройка GoogleTest ---
+include(FetchContent)
 
-find_package(GTest CONFIG QUIET)
-if(NOT GTest_FOUND)
-    message(STATUS "GTest не найден в системе. Будет скачан и собран из исходников.")
-    include(FetchContent)
-
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.15.1
-    )
-
-    # Для Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    
-    # Отключаем сборку тестов внутри googletest (это часто вызывает ошибки в CI)
-    set(BUILD_GTEST OFF CACHE BOOL "" FORCE)
-    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-    
-    FetchContent_MakeAvailable(googletest)
-
-    if(NOT TARGET GTest::gmock_main)
-        add_library(GTest::gmock_main ALIAS gmock_main)
-    endif()
-endif()
-
-add_library(MovingLogicLib
-    src/Point.cpp
-    src/Commands/MoveCommand.cpp
-)
-target_include_directories(MovingLogicLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
-
-add_executable(RunTests tests/test_main.cpp)
-
-target_link_libraries(RunTests PRIVATE
-    GTest::gmock_main
-    MovingLogicLib
+# Объявляем зависимость от GoogleTest.
+# Используем тег release-1.12.1, который точно существует.
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.12.1
 )
 
-include(GoogleTest)
-gtest_discover_tests(RunTests)
+# Загружаем и собираем GoogleTest автоматически.
+FetchContent_MakeAvailable(googletest)
 
-set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "tests")
-set(CPACK_PACKAGE_FILE_NAME "tests-0.0.1-Linux")
-set(CPACK_PACKAGE_VERSION_MAJOR 0)
-set(CPACK_PACKAGE_VERSION_MINOR 0)
-set(CPACK_PACKAGE_VERSION_PATCH 1)
-set(CPACK_PACKAGE_CONTACT "example@example.com")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "example@example.com")
-set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "tests shared library and tools")
+# --- Настройка вашего проекта ---
+# Добавляем исполняемый файл (пример)
+add_executable(
+  main
+  src/main.cpp
+)
 
-include(CPack)
+# Добавляем тестовый файл (пример)
+add_executable(
+  my_test
+  test/my_test.cpp
+)
+
+# Подключаем GoogleTest к тестовому файлу
+target_link_libraries(
+  my_test
+  GTest::Main
+  GTest::GTest
+)
