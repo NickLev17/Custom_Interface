@@ -1,4 +1,4 @@
-name: 'C++ CI'
+name: C++ CI
 
 on:
   push:
@@ -9,51 +9,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      # 1. Шаг: Проверка кода с инициализацией подмодулей
+      - uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: true # ВАЖНО: Это инициализирует ваш подмодуль googletest
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+      # 2. Шаг: Использование официального действия для CMake
+      # Этот шаг сам скачает и настроит CMake.
+      - uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.31' # Указываем версию, которая у вас установлена локально
 
-      - name: Configure project with CMake (in build folder)
+      # 3. Шаг: Настройка (Configure)
+      - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
-          cmake .. # Переменные PATCH_VERSION и WITH_BOOST_TEST убраны, так как они не используются в CMakeLists.txt
+          # Используем флаг -DCMAKE_EXPORT_COMPILE_COMMANDS для удобства IDE
+          cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build project (build all targets)
-        run: cmake --build build
+      # 4. Шаг: Сборка (Build) и тесты (Test)
+      - name: Build and Run Tests
+        run: |
+          cd build
+          # Собираем все (включая тесты) и сразу их запускаем
+          cmake --build . --config Release
+          ctest --output-on-failure
 
-      - name: Run Google Tests
-        run: ctest --test-dir build
+      # 5. Шаг: Сборка пакета (Package)
+      - name: Build .deb Package
+        run: |
+          cd build
+          cmake --build . --target package --config Release
 
-      - name: Build package (создаем .deb)
-        run: cmake --build build --target package
-
-      - name: Find generated .deb files (для проверки)
-        run: find build -name 'tests-0.0.1-Linux.deb' -ls
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 6. Шаг: Поиск и публикация артефакта (вместо релиза)
+      # Использовать Releases для .deb файлов не всегда удобно.
+      # Лучше использовать встроенную систему "Artifacts".
+      - name: Upload package as artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset (загружаем .deb в релиз)
-        id: upload_release_asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: build/tests-0.0.1-Linux.deb # Имя должно совпадать с тем, что задано в CPack!
-          asset_name: tests-0.0.1-Linux.deb
-          asset_content_type: application/vnd.debian.binary-package
+          name: deb-package
+          path: build/tests-0.0.1-Linux.deb
