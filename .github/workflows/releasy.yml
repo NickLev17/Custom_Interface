@@ -11,13 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          submodules: true # Важно для add_subdirectory
+          submodules: true
 
       - name: Install dependencies and download GoogleTest manually
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
-          # Создаем папку и скачиваем код, чтобы add_subdirectory сработал
           mkdir -p external/googletest && cd external/googletest
           git init
           git remote add origin https://github.com/google/googletest.git
@@ -28,7 +27,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake .. # Убраны неиспользуемые переменные PATCH_VERSION и WITH_BOOST_TEST
+          cmake ..
 
       - name: Build project (build all targets)
         run: |
@@ -41,40 +40,37 @@ jobs:
           ctest --output-on-failure
 
       - name: Build package (создаем .deb)
+        id: package_step # Добавляем ID к шагу, чтобы использовать его выходы
         run: |
           cd build
-          cpack -C Release # Явно вызываем упаковщик
+          cpack -C Release
+          # ИСПРАВЛЕНИЕ 1: Используем новый метод вывода $GITHUB_OUTPUT
+          echo "package_path=$(pwd)/tests-0.0.1-Linux.deb" >> $GITHUB_OUTPUT
 
-      # --- НОВЫЕ ШАГИ ДЛЯ РЕЛИЗА ---
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1 # Использование v1 здесь допустимо и работает
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Используем номер запуска как уникальный тег
-          tag_name: ${{ github.run_number }} 
+          tag_name: ${{ github.run_number }}
           release_name: Release ${{ github.run_number }}
           draft: false
           prerelease: false
 
       - name: Upload Release Asset (загружаем .deb в релиз)
         id: upload_release_asset
-        uses: actions/upload-release-asset@v1 # Использование v1 здесь допустимо и работает
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # Берем URL для загрузки из предыдущего шага
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           
-          # --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
-          # Имя файла должно ТОЧНО совпадать с тем, что создал CPack.
-          # Если вы исправили CMakeLists.txt как выше, то имя будет tests-1.0.0-Linux.deb.
-          # Если вы НЕ исправляли CMake, то имя будет tests-0.0.1-Linux.deb.
+          # Берем путь к файлу из шага сборки (ИСПРАВЛЕНИЕ 1)
+          asset_path: ${{ steps.package_step.outputs.package_path }}
           
-          # ИСПРАВЛЕННЫЙ ВАРИАНТ (если вы НЕ меняли CMakeLists.txt):
-          asset_path: build/tests-0.0.1-Linux.deb 
+          asset_name: tests-0.0.1-Linux.deb
           
-          # ВАРИАНТ (если вы ИСПРАВИЛИ CMakeLists.txt как я советовал выше):
-          # asset_path: build/tests-1.0.0-Linux.deb 
-          
-          asset_name: tests-0.0.1-Linux.deb # Имя файла в релизе
+          # ИСПРАВЛЕНИЕ 2: Явно указываем тип контента для .deb файла
+          asset_content_type: application/vnd.debian.binary-package
