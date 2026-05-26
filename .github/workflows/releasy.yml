@@ -1,22 +1,22 @@
 name: C++ CI and Release
 
-# Триггер: запуск вручную
+# Триггер: запуск вручную из вкладки "Actions"
 on:
   workflow_dispatch: 
 
 jobs:
-  # Задание 1: Сборка проекта и создание .deb пакета
   build_and_package:
     name: 🏗️ Build and Package
     runs-on: ubuntu-latest
     outputs:
-      package_path: ${{ steps.package.outputs.package_path }}
+      # Объявляем, что задание вернет переменную 'package_path'
+      package_path: ${{ steps.package.outputs.package_path }} 
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download GoogleTest manually
+      - name: Download GoogleTest manually (для CMake add_subdirectory)
         run: |
           mkdir -p external/googletest
           cd external/googletest
@@ -25,7 +25,7 @@ jobs:
           git fetch --depth=1 origin main
           git checkout main
 
-      - name: Install dependencies for build
+      - name: Install dependencies for build and CPack
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
@@ -36,43 +36,42 @@ jobs:
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build and Package .deb file
+      - name: Build and Package .deb file (Используем новый метод set-output)
         id: package
         run: |
           cd build
           cmake --build . --config Release --target package
-          # Сохраняем путь к файлу для следующего задания
-          echo "::set-output name=package_path::$(pwd)/tests-0.0.1-Linux.deb"
+          # НОВОЕ: Записываем путь в файл, как требует GitHub
+          echo "package_path=$(pwd)/tests-0.0.1-Linux.deb" >> $GITHUB_OUTPUT
 
 
-  # Задание 2: Создание релиза и загрузка актива (файла)
   create_release:
     name: 🚀 Create Release and Upload Asset
     needs: build_and_package # Ждем успешного завершения сборки!
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create Release
+      - name: Create Release (Используем полный путь к действию)
         id: create_release
-        uses: actions/create-release@v4 # ИСПОЛЬЗУЕМ ВЕРСИЮ v4!
+        uses: docker://ghcr.io/actions/create-release:latest # <-- ИСПРАВЛЕНО! Полный путь (Docker image)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: 'v0.0.1' # Тег для релиза
+          tag_name: 'v0.0.1'
           release_name: Release v0.0.1
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset (.deb file)
+      - name: Upload Release Asset (.deb file) (Используем полный путь)
         id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v4 # ИСПОЛЬЗУЕМ ВЕРСИЮ v4!
+        uses: docker://ghcr.io/actions/upload-release-asset:latest # <-- ИСПРАВЛЕНО! Полный путь (Docker image)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           
-          # Берем путь к файлу из шага сборки (межзадательная связь)
+          # Берем путь из задания сборки (работает благодаря 'needs')
           asset_path: ${{ needs.build_and_package.outputs.package_path }}
           
-          asset_name: tests-0.0.1-Linux.deb # Имя файла в релизе
+          asset_name: tests-0.0.1-Linux.deb 
           asset_content_type: application/vnd.debian.binary-package
