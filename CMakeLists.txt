@@ -18,7 +18,13 @@ if(NOT GTest_FOUND)
         GIT_TAG release-1.15.1
     )
 
+    # Для Windows: Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    
+    # Отключаем сборку тестов внутри googletest (это часто вызывает ошибки в CI)
+    set(BUILD_GTEST OFF CACHE BOOL "" FORCE)
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    
     FetchContent_MakeAvailable(googletest)
 
     if(NOT TARGET GTest::gmock_main)
