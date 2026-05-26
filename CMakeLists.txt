@@ -1,20 +1,10 @@
-cmake_minimum_required(VERSION 3.14)
-project(MovingObjectProject VERSION 1.0)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-list(APPEND CMAKE_PREFIX_PATH /usr/share/cmake)
-
-enable_testing()
 
 find_package(GTest CONFIG QUIET)
 
 if(NOT GTest_FOUND)
     message(STATUS "GTest не найден в системе. Будет скачан и собран из исходников.")
     include(FetchContent)
-
+    
     FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/release-1.15.1.zip
@@ -22,8 +12,21 @@ if(NOT GTest_FOUND)
 
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
-endif()
 
+
+    if(NOT TARGET GTest::gmock_main)
+        add_library(GTest::gmock_main ALIAS gmock_main)
+    endif()
+    if(NOT TARGET GTest::gmock)
+        add_library(GTest::gmock ALIAS gmock)
+    endif()
+    if(NOT TARGET GTest::gtest_main)
+        add_library(GTest::gtest_main ALIAS gtest_main)
+    endif()
+    if(NOT TARGET GTest::gtest)
+        add_library(GTest::gtest ALIAS gtest)
+    endif()
+endif()
 
 add_library(MovingLogicLib
     src/Point.cpp
@@ -36,34 +39,15 @@ add_executable(RunTests tests/test_main.cpp)
 target_include_directories(RunTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 
-if(TARGET GTest::gmock AND TARGET GTest::gtest_main)
-    target_link_libraries(RunTests PRIVATE
-        GTest::gmock
-        GTest::gtest
-        GTest::gtest_main
-        MovingLogicLib
-        pthread
-    )
-elseif(TARGET gmock AND TARGET gtest_main)
-    target_link_libraries(RunTests PRIVATE
-        gmock
-        gtest
-        gtest_main
-        MovingLogicLib
-        pthread
-    )
-else()
-    target_link_libraries(RunTests PRIVATE
-        GTest::gmock
-        GTest::gtest
-        GTest::gtest_main
-        MovingLogicLib
-        pthread
-    )
-endif()
+target_link_libraries(RunTests PRIVATE
+    GTest::gmock_main
+    MovingLogicLib
+)
+
 
 include(GoogleTest)
 gtest_discover_tests(RunTests)
+
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "tests")
 set(CPACK_PACKAGE_FILE_NAME "tests-0.0.1-Linux")
