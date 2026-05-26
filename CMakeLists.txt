@@ -6,8 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- ПОДКЛЮЧЕНИЕ GOOGLETEST ИЗ ПОДДИРЕКТОРИИ (SUBMODULE) ---
-# CMake соберет GoogleTest из папки external/googletest,
-# которая будет подготовлена GitHub Actions.
 add_subdirectory(external/googletest)
 
 enable_testing()
@@ -22,14 +20,7 @@ target_include_directories(MovingLogicLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 # --- СБОРКА ТЕСТОВОГО ИСПОЛНЯЕМОГО ФАЙЛА ---
 add_executable(RunTests tests/test_main.cpp)
 target_include_directories(RunTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
-
-# --- ПОДКЛЮЧЕНИЕ БИБЛИОТЕК (ПРОСТОЙ И НАДЕЖНЫЙ СПОСОБ) ---
-# GTest::gmock_main включает в себя все необходимое для запуска тестов.
-target_link_libraries(RunTests PRIVATE
-    GTest::gmock_main 
-    MovingLogicLib
-    pthread
-)
+target_link_libraries(RunTests PRIVATE GTest::gmock_main MovingLogicLib pthread)
 
 # --- АВТОМАТИЧЕСКИЙ ЗАПУСК ТЕСТОВ ---
 include(GoogleTest)
@@ -45,5 +36,23 @@ set(CPACK_PACKAGE_VERSION_PATCH 1)
 set(CPACK_PACKAGE_CONTACT "example@example.com")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "example@example.com")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "tests shared library and tools")
+
+
+# --- НОВАЯ ЧАСТЬ: ИНСТРУКЦИИ ДЛЯ УСТАНОВКИ (INSTALL) ---
+# Эти команды говорят CPack, какие файлы положить в .deb пакет
+
+# 1. Устанавливаем библиотеку (это уже делает CMake по умолчанию для целей LIBRARY,
+#    но мы можем уточнить путь, если нужно. Обычно это не обязательно).
+install(TARGETS MovingLogicLib DESTINATION lib)
+
+# 2. Устанавливаем заголовочные файлы (очень важно для библиотек!)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
+
+# 3. Устанавливаем ИСПОЛНЯЕМЫЙ ФАЙЛ ТЕСТОВ (КЛЮЧЕВОЙ МОМЕНТ!)
+install(TARGETS RunTests DESTINATION bin)
+
+# 4. (Опционально) Устанавливаем исходники тестов, если они нужны в пакете
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/tests/ DESTINATION tests FILES_MATCHING PATTERN "*.cpp")
+
 
 include(CPack)
