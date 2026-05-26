@@ -1,53 +1,42 @@
+cmake_minimum_required(VERSION 3.14) # Версия с поддержкой CPM или просто 3.11+
+project(TestsProject)
 
-find_package(GTest CONFIG QUIET)
+# Устанавливаем стандарт C++ (рекомендуется)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT GTest_FOUND)
-    message(STATUS "GTest не найден в системе. Будет скачан и собран из исходников.")
-    include(FetchContent)
-    
-    FetchContent_Declare(
-        googletest
-        URL https://github.com/google/googletest/archive/release-1.15.1.zip
-    )
+# --- ПОДКЛЮЧЕНИЕ GOOGLETEST ИЗ ПОДДИРЕКТОРИИ (SUBMODULE) ---
+# Это самый надежный способ. CMake соберет GoogleTest из папки external/googletest.
+add_subdirectory(external/googletest)
 
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-
-
-    if(NOT TARGET GTest::gmock_main)
-        add_library(GTest::gmock_main ALIAS gmock_main)
-    endif()
-    if(NOT TARGET GTest::gmock)
-        add_library(GTest::gmock ALIAS gmock)
-    endif()
-    if(NOT TARGET GTest::gtest_main)
-        add_library(GTest::gtest_main ALIAS gtest_main)
-    endif()
-    if(NOT TARGET GTest::gtest)
-        add_library(GTest::gtest ALIAS gtest)
-    endif()
-endif()
-
+# --- СБОРКА ВАШЕЙ БИБЛИОТЕКИ ---
 add_library(MovingLogicLib
     src/Point.cpp
     src/Commands/MoveCommand.cpp
 )
+
+# Указываем путь к заголовочным файлам вашей библиотеки
 target_include_directories(MovingLogicLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
 
+# --- СБОРКА ТЕСТОВОГО ИСПОЛНЯЕМОГО ФАЙЛА ---
 add_executable(RunTests tests/test_main.cpp)
+
+# Подключаем к тестам:
+# 1. Вашу библиотеку с логикой.
+# 2. gtest_main (содержит функцию main для запуска тестов).
+# 3. gtest (содержит макросы ASSERT_EQ и т.д.).
+target_link_libraries(RunTests PRIVATE MovingLogicLib gtest_main gtest)
+
+# Указываем путь к заголовкам вашей библиотеки для тестового файла
 target_include_directories(RunTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 
-target_link_libraries(RunTests PRIVATE
-    GTest::gmock_main
-    MovingLogicLib
-)
-
-
+# --- АВТОМАТИЧЕСКИЙ ПОИСК И ЗАПУСК ТЕСТОВ ---
 include(GoogleTest)
 gtest_discover_tests(RunTests)
 
+# --- НАСТРОЙКА УПАКОВЩИКА CPACK ---
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "tests")
 set(CPACK_PACKAGE_FILE_NAME "tests-0.0.1-Linux")
