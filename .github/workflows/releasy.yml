@@ -9,36 +9,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Шаг 1: Проверка репозитория с подмодулями
-      # Это САМЫЙ ВАЖНЫЙ ШАГ. Он скачает код вашего проекта и,
-      # благодаря флагу 'submodules: true', также скачает код GoogleTest
-      # в папку 'external/googletest'.
+      # Шаг 1: Проверка репозитория БЕЗ подмодулей
       - uses: actions/checkout@v4
-        with:
-          submodules: true 
+        # Мы не используем submodules, чтобы не было конфликтов
 
-      # Шаг 2: Установка зависимостей (нужно для сборки GoogleTest и CPACK)
+      # Шаг 2: Создаем папку и скачиваем GoogleTest вручную
+      - name: Download GoogleTest manually
+        run: |
+          mkdir -p external/googletest
+          cd external/googletest
+          git init
+          git remote add origin https://github.com/google/googletest.git
+          git fetch --depth=1 origin main # Скачиваем только последнюю версию (main branch)
+          git checkout main
+
+      # Шаг 3: Установка зависимостей для сборки
       - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      # Шаг 3: Настройка проекта с CMake
+      # Шаг 4: Настройка проекта с CMake
       - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      # Шаг 4: Сборка, запуск тестов и создание пакета .deb
+      # Шаг 5: Сборка, тесты и пакет
       - name: Build, Test and Package
         run: |
           cd build
           cmake --build . --config Release --target all package
 
-      # Шаг 5: Загрузка собранного .deb файла как артефакта сборки
+      # Шаг 6: Загрузка .deb файла как артефакта
       - name: Upload package as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-package # Имя артефакта, под которым файл будет доступен для скачивания
-          path: build/tests-0.0.1-Linux.deb # Путь к файлу, который создал CPack
+          name: deb-package
+          path: build/tests-0.0.1-Linux.deb
