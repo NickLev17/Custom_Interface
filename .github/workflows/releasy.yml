@@ -1,76 +1,50 @@
-name: C++ CI and Release
+name: C++ CI
 
 on:
   push:
     branches: [main]
 
 jobs:
-  # Задание 1: Сборка проекта и создание артефакта
-  build_and_package:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: true # Обязательно для add_subdirectory
+      # Шаг 1: Проверка репозитория БЕЗ подмодулей
+      - uses: actions/checkout@v4
+        # Мы не используем submodules, чтобы не было конфликтов
 
-      - name: Install dependencies
+      # Шаг 2: Создаем папку и скачиваем GoogleTest вручную
+      - name: Download GoogleTest manually
+        run: |
+          mkdir -p external/googletest
+          cd external/googletest
+          git init
+          git remote add origin https://github.com/google/googletest.git
+          git fetch --depth=1 origin main # Скачиваем только последнюю версию (main branch)
+          git checkout main
+
+      # Шаг 3: Установка зависимостей для сборки
+      - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      - name: Configure CMake
+      # Шаг 4: Настройка проекта с CMake
+      - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build and Package
+      # Шаг 5: Сборка, тесты и пакет
+      - name: Build, Test and Package
         run: |
           cd build
           cmake --build . --config Release --target all package
 
-      # --- КЛЮЧЕВОЙ ШАГ: Сохраняем файл как артефакт ---
+      # Шаг 6: Загрузка .deb файла как артефакта
       - name: Upload package as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-package # Имя, под которым файл сохранится
-          path: build/tests-0.0.1-Linux.deb # Путь к файлу
-
-
-  # Задание 2: Создание релиза (зависит от успешного выполнения первого)
-  create_release:
-    needs: build_and_package # Релиз создастся ТОЛЬКО если сборка прошла успешно
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create_release.outputs.release_id }}
-
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.run_number }} # Уникальный тег для каждого запуска
-          release_name: Release ${{ github.run_number }}
-          draft: false
-          prerelease: false
-
-      - name: Download artifact from previous job
-        uses: actions/download-artifact@v4
-        with:
-          name: deb-package # Должно совпадать с именем в шаге upload-artifact
-          path: . # Скачиваем в текущую директорию
-
-      - name: Upload .deb file to Release
-        id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./tests-0.0.1-Linux.deb # Путь к скачанному файлу
-          asset_name: tests-0.0.1-Linux.deb # Имя файла в релизе
-          asset_content_type: application/vnd.debian.binary-package
+          name: deb-package
+          path: build/tests-0.0.1-Linux.deb
