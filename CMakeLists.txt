@@ -1,14 +1,30 @@
 cmake_minimum_required(VERSION 3.14)
 project(MovingObjectProject
-    VERSION 1.0.0 # Теперь версия берется отсюда
+    VERSION 1.0.0 
 )
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# --- ПОДКЛЮЧЕНИЕ GOOGLETEST ИЗ ПОДДИРЕКТОРИИ (SUBMODULE) ---
-add_subdirectory(external/googletest)
+# --- УМНОЕ ПОДКЛЮЧЕНИЕ GOOGLETEST ---
+# Проверяем, существует ли папка external/googletest.
+# Если ДА (в GitHub Actions), подключаем как поддиректорию.
+# Если НЕТ (на локальном ПК), скачиваем через FetchContent.
+if(EXISTS "${CMAKE_SOURCE_DIR}/external/googletest")
+    message(STATUS "Папка external/googletest найдена. Использую add_subdirectory.")
+    add_subdirectory(external/googletest)
+else()
+    message(STATUS "Папка external/googletest не найдена. Использую FetchContent для скачивания.")
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        # Используем конкретный коммит, который точно существует
+        GIT_TAG        609221a7e85a734037d28370346fa035c3295301 
+    )
+    FetchContent_MakeAvailable(googletest)
+endif()
 
 enable_testing()
 
@@ -32,14 +48,10 @@ gtest_discover_tests(RunTests)
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "tests")
 
-# --- ГЛАВНОЕ ИЗМЕНЕНИЕ: Используем переменные проекта для имени файла ---
-# Это автоматически создаст имя вроде tests-1.0.0-Linux.deb
+# Используем версию проекта для имени файла (например, tests-1.0.0-Linux.deb)
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
-
-# Убираем жестко заданное имя файла, чтобы CPack сам его сгенерировал
-# set(CPACK_PACKAGE_FILE_NAME "tests-0.0.1-Linux") # УДАЛИТЕ ЭТУ СТРОКУ
 
 set(CPACK_PACKAGE_CONTACT "example@example.com")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "example@example.com")
