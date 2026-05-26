@@ -9,10 +9,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Шаг 1: Проверка репозитория
       - uses: actions/checkout@v4
 
-      # Шаг 2: Скачиваем GoogleTest вручную в папку external/googletest
       - name: Download GoogleTest manually
         run: |
           mkdir -p external/googletest
@@ -22,46 +20,48 @@ jobs:
           git fetch --depth=1 origin main
           git checkout main
 
-      # Шаг 3: Устанавливаем необходимые системные зависимости
       - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      # Шаг 4: Конфигурация проекта с помощью CMake
       - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      # Шаг 5: Сборка проекта и запуск тестов
       - name: Build and Run Tests
         run: |
           cd build
           cmake --build . --config Release
 
-      - name: Create Release
+      - name: Build .deb Package (Создаем пакет здесь!)
+        run: |
+          cd build
+          cpack -C Release
+
+      - name: Create Release (Создаем релиз на GitHub)
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@v4 # Используем новую версию действия!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
+          tag_name: v1.0.0 # Или любую другую версию, которую вы хотите выпустить
+          release_name: Release v1.0.0
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
-        id: upload_release_asset
-        uses: actions/upload-release-asset@v1
+      - name: Upload Release Asset (Загружаем файл в созданный релиз)
+        id: upload-release-asset-deb
+        uses: actions/upload-release-asset@v4 # ОБЯЗАТЕЛЬНО v4!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: build/tests-0.0.${{ github.run_number }}-Linux.deb
-          asset_name: tests-0.0.1-Linux.deb
+          
+          # ГЛАВНОЕ ИЗМЕНЕНИЕ: Имя файла должно СОВПАДАТЬ с тем, что создает CPack.
+          # Если в CPack у вас версия 1.0.0, то здесь должно быть так же.
+          asset_path: build/tests-1.0.0-Linux.deb 
+          asset_name: tests-1.0.0-Linux.deb 
           asset_content_type: application/vnd.debian.binary-package
-
-     
-          path: build/tests-0.0.1-Linux.deb
