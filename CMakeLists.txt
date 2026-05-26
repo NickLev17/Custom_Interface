@@ -14,7 +14,8 @@ if(NOT GTest_FOUND)
 
     FetchContent_Declare(
         googletest
-        URL https://github.com/google/googletest/archive/release-1.15.1.zip
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.15.1
     )
 
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -31,23 +32,15 @@ add_library(MovingLogicLib
 )
 target_include_directories(MovingLogicLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-
 add_executable(RunTests tests/test_main.cpp)
 
-target_include_directories(RunTests PRIVATE
-    $<TARGET_FILE_DIR:gmock_main>/include
-    $<TARGET_FILE_DIR:gtest_main>/include
-)
-
 target_link_libraries(RunTests PRIVATE
-    GTest::gmock_main # Эта цель включает в себя gtest, gmock и main-функцию.
-    MovingLogicLib   # Подключаем вашу библиотеку с логикой.
+    GTest::gmock_main
+    MovingLogicLib
 )
-
 
 include(GoogleTest)
 gtest_discover_tests(RunTests)
-
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "tests")
