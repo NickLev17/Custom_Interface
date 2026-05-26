@@ -41,15 +41,27 @@ jobs:
           cd build
           cmake --build . --config Release
 
-      # Шаг 6: Создание .deb пакета с помощью CPack
-      - name: Build .deb Package
-        run: |
-          cd build
-          cpack -C Release
-
-      # Шаг 7: Загрузка созданного пакета как артефакта сборки
-      - name: Upload package as artifact
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: deb-package
+          tag_name: ${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload_release_asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/tests-0.0.${{ github.run_number }}-Linux.deb
+          asset_name: tests-0.0.${{ github.run_number }}-Linux.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+     
           path: build/tests-0.0.1-Linux.deb
