@@ -1,75 +1,80 @@
-name: C++ CI and Release
+name: 'C++ CI'
 
 on:
-  workflow_dispatch: 
+  push:
+    branches: [main]
 
 jobs:
-  build_and_package:
-    name: 🏗️ Build and Package
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      package_path: ${{ steps.package.outputs.package_path }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v2
+        with:
+          submodules: true # Важно для add_subdirectory
 
-      - name: Download GoogleTest manually (для вашего CMake add_subdirectory)
+      - name: Install dependencies and download GoogleTest manually
         run: |
-          mkdir -p external/googletest
-          cd external/googletest
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential debhelper dpkg-dev
+          # Создаем папку и скачиваем код, чтобы add_subdirectory сработал
+          mkdir -p external/googletest && cd external/googletest
           git init
           git remote add origin https://github.com/google/googletest.git
           git fetch --depth=1 origin main
           git checkout main
 
-      - name: Install dependencies for build and CPack
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential debhelper dpkg-dev
-
-      - name: Configure with CMake
+      - name: Configure project with CMake (in build folder)
         run: |
           mkdir -p build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake .. # Убраны неиспользуемые переменные PATCH_VERSION и WITH_BOOST_TEST
 
-      - name: Build and Package .deb file (ИСПОЛЬЗУЕМ НОВЫЙ СПОСОБ ВЫВОДА)
-        id: package
+      - name: Build project (build all targets)
         run: |
           cd build
-          cmake --build . --config Release --target package
-          # Записываем путь в файл $GITHUB_OUTPUT (современный метод)
-          echo "package_path=$(pwd)/tests-0.0.1-Linux.deb" >> $GITHUB_OUTPUT
+          cmake --build .
 
+      - name: Run Google Tests
+        run: |
+          cd build
+          ctest --output-on-failure
 
-  create_release:
-    name: 🚀 Create Release and Upload Asset
-    needs: build_and_package
-    runs-on: ubuntu-latest
+      - name: Build package (создаем .deb)
+        run: |
+          cd build
+          cpack -C Release # Явно вызываем упаковщик
 
-    steps:
-      - name: Create Release (ИСПОЛЬЗУЕМ ВЕРСИЮ v3)
+      # --- НОВЫЕ ШАГИ ДЛЯ РЕЛИЗА ---
+      - name: Create Release
         id: create_release
-        uses: actions/create-release@v3 # СТАБИЛЬНАЯ ВЕРСИЯ v3
+        uses: actions/create-release@v1 # Использование v1 здесь допустимо и работает
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: 'v0.0.1'
-          release_name: Release v0.0.1
+          # Используем номер запуска как уникальный тег
+          tag_name: ${{ github.run_number }} 
+          release_name: Release ${{ github.run_number }}
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset (.deb file) (ИСПОЛЬЗУЕМ ВЕРСИЮ v3)
-        id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v3 # СТАБИЛЬНАЯ ВЕРСИЯ v3
+      - name: Upload Release Asset (загружаем .deb в релиз)
+        id: upload_release_asset
+        uses: actions/upload-release-asset@v1 # Использование v1 здесь допустимо и работает
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           
-          # Берем путь из задания сборки
-          asset_path: ${{ needs.build_and_package.outputs.package_path }}
+          # --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
+          # Имя файла должно ТОЧНО совпадать с тем, что создал CPack.
+          # Если вы исправили CMakeLists.txt как выше, то имя будет tests-1.0.0-Linux.deb.
+          # Если вы НЕ исправляли CMake, то имя будет tests-0.0.1-Linux.deb.
           
-          asset_name: tests-0.0.1-Linux.deb 
-          asset_content_type: application/vnd.debian.binary-package
+          # ИСПРАВЛЕННЫЙ ВАРИАНТ (если вы НЕ меняли CMakeLists.txt):
+          asset_path: build/tests-0.0.1-Linux.deb 
+          
+          # ВАРИАНТ (если вы ИСПРАВИЛИ CMakeLists.txt как я советовал выше):
+          # asset_path: build/tests-1.0.0-Linux.deb 
+          
+          asset_name: tests-0.0.1-Linux.deb # Имя файла в релизе
