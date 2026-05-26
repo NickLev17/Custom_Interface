@@ -1,5 +1,3 @@
-name: 'C++ CI'
-
 on:
   push:
     branches: [main]
@@ -40,12 +38,24 @@ jobs:
           ctest --output-on-failure
 
       - name: Build package (создаем .deb)
-        id: package_step # Добавляем ID к шагу, чтобы использовать его выходы
+        id: package_step
         run: |
           cd build
-          cpack -C Release
-          # ИСПРАВЛЕНИЕ 1: Используем новый метод вывода $GITHUB_OUTPUT
-          echo "package_path=$(pwd)/tests-0.0.1-Linux.deb" >> $GITHUB_OUTPUT
+          cpack -C DEB
+          # Находим созданный .deb файл
+          PACKAGE_FILE=$(ls *.deb 2>/dev/null | head -n 1)
+          if [ -z "$PACKAGE_FILE" ]; then
+            echo "Ошибка: .deb файл не найден"
+            ls -la
+            exit 1
+          fi
+          echo "package_path=$(pwd)/$PACKAGE_FILE" >> $GITHUB_OUTPUT
+          echo "package_name=$PACKAGE_FILE" >> $GITHUB_OUTPUT
+          echo "Создан файл: $PACKAGE_FILE"
+
+      - name: Verify package exists
+        run: |
+          ls -la "${{ steps.package_step.outputs.package_path }}"
 
       - name: Create Release
         id: create_release
@@ -59,18 +69,11 @@ jobs:
           prerelease: false
 
       - name: Upload Release Asset (загружаем .deb в релиз)
-        id: upload_release_asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Берем URL для загрузки из предыдущего шага
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          
-          # Берем путь к файлу из шага сборки (ИСПРАВЛЕНИЕ 1)
           asset_path: ${{ steps.package_step.outputs.package_path }}
-          
-          asset_name: tests-0.0.1-Linux.deb
-          
-          # ИСПРАВЛЕНИЕ 2: Явно указываем тип контента для .deb файла
+          asset_name: ${{ steps.package_step.outputs.package_name }}
           asset_content_type: application/vnd.debian.binary-package
