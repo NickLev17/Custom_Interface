@@ -1,22 +1,22 @@
 name: C++ CI and Release
 
-# Триггер: запускается вручную из вкладки "Actions"
+# Триггер: запуск вручную
 on:
   workflow_dispatch: 
 
 jobs:
   # Задание 1: Сборка проекта и создание .deb пакета
   build_and_package:
-    name: 🏗️ Сборка и упаковка
+    name: 🏗️ Build and Package
     runs-on: ubuntu-latest
     outputs:
       package_path: ${{ steps.package.outputs.package_path }}
 
     steps:
-      - name: Проверка репозитория
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Скачать GoogleTest вручную
+      - name: Download GoogleTest manually
         run: |
           mkdir -p external/googletest
           cd external/googletest
@@ -25,18 +25,18 @@ jobs:
           git fetch --depth=1 origin main
           git checkout main
 
-      - name: Установка зависимостей
+      - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      - name: Настройка CMake
+      - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Сборка и упаковка
+      - name: Build and Package .deb file
         id: package
         run: |
           cd build
@@ -45,33 +45,30 @@ jobs:
           echo "::set-output name=package_path::$(pwd)/tests-0.0.1-Linux.deb"
 
 
-  # Задание 2: Создание релиза и загрузка файла
+  # Задание 2: Создание релиза и загрузка актива (файла)
   create_release:
-    # Это задание зависит от успешного завершения первого!
-    needs: build_and_package 
-    name: 🚀 Создание релиза и загрузка актива
+    name: 🚀 Create Release and Upload Asset
+    needs: build_and_package # Ждем успешного завершения сборки!
     runs-on: ubuntu-latest
 
     steps:
-      - name: Создать новый релиз
+      - name: Create Release
         id: create_release
-        uses: actions/create-release@v3 # Используем стабильную версию v3
+        uses: actions/create-release@v4 # ИСПОЛЬЗУЕМ ВЕРСИЮ v4!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Имя тега (может быть любым, например, номер сборки)
-          tag_name: 'v0.0.1' 
-          release_name: Auto-release build ${{ github.run_number }}
+          tag_name: 'v0.0.1' # Тег для релиза
+          release_name: Release v0.0.1
           draft: false
           prerelease: false
 
-      - name: Загрузить .deb файл в релиз
+      - name: Upload Release Asset (.deb file)
         id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v3 # Используем стабильную версию v3
+        uses: actions/upload-release-asset@v4 # ИСПОЛЬЗУЕМ ВЕРСИЮ v4!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Берем ссылку для загрузки из шага создания релиза
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           
           # Берем путь к файлу из шага сборки (межзадательная связь)
