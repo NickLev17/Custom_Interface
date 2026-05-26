@@ -9,14 +9,14 @@ jobs:
     name: 🏗️ Build and Package
     runs-on: ubuntu-latest
     outputs:
-      # Объявляем, что задание вернет переменную 'package_path'
-      package_path: ${{ steps.package.outputs.package_path }} 
+      package_path: ${{ steps.package.outputs.package_path }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download GoogleTest manually (для CMake add_subdirectory)
+      # Шаг для CMake add_subdirectory (если вы используете этот метод в CMakeLists.txt)
+      - name: Download GoogleTest manually
         run: |
           mkdir -p external/googletest
           cd external/googletest
@@ -36,12 +36,12 @@ jobs:
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build and Package .deb file (Используем новый метод set-output)
+      - name: Build and Package .deb file (ИСПОЛЬЗУЕМ НОВЫЙ СПОСОБ ВЫВОДА)
         id: package
         run: |
           cd build
           cmake --build . --config Release --target package
-          # НОВОЕ: Записываем путь в файл, как требует GitHub
+          # НОВОЕ: Записываем путь в файл $GITHUB_OUTPUT
           echo "package_path=$(pwd)/tests-0.0.1-Linux.deb" >> $GITHUB_OUTPUT
 
 
@@ -51,9 +51,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create Release (Используем полный путь к действию)
+      - name: Create Release (ИСПОЛЬЗУЕМ АКТУАЛЬНУЮ ВЕРСИЮ v4)
         id: create_release
-        uses: docker://ghcr.io/actions/create-release:latest # <-- ИСПРАВЛЕНО! Полный путь (Docker image)
+        uses: actions/create-release@v4 # Теперь это работает, так как мы не в контейнере!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -62,15 +62,15 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset (.deb file) (Используем полный путь)
+      - name: Upload Release Asset (.deb file) (ИСПОЛЬЗУЕМ АКТУАЛЬНУЮ ВЕРСИЮ v4)
         id: upload-release-asset-deb
-        uses: docker://ghcr.io/actions/upload-release-asset:latest # <-- ИСПРАВЛЕНО! Полный путь (Docker image)
+        uses: actions/upload-release-asset@v4 # Теперь это работает!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           
-          # Берем путь из задания сборки (работает благодаря 'needs')
+          # Берем путь из задания сборки
           asset_path: ${{ needs.build_and_package.outputs.package_path }}
           
           asset_name: tests-0.0.1-Linux.deb 
