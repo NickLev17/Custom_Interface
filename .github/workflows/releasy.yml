@@ -1,6 +1,4 @@
 name: Create Release and Build Package
-
-# Триггер: запускается вручную из вкладки "Actions" или при публикации тега
 on:
   push:
     tags:
@@ -40,9 +38,8 @@ jobs:
           # Сохраняем путь к файлу для следующего задания
           echo "::set-output name=package_path::$(pwd)/tests-0.0.1-Linux.deb"
 
-  # Задание 2: Создаем релиз и загружаем в него файл
   create_release:
-    # Это задание зависит от успешного завершения первого!
+
     needs: build_and_package
     name: 🚀 Create Release and Upload Asset
     runs-on: ubuntu-latest
@@ -66,9 +63,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Берем ссылку для загрузки из шага создания релиза
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          # Берем путь к файлу из шага сборки (межзадательная связь)
           asset_path: ${{ needs.build_and_package.outputs.package_path }}
           asset_name: tests-0.0.1-Linux.deb
           asset_content_type: application/vnd.debian.binary-package
