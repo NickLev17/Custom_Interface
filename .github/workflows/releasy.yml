@@ -1,6 +1,5 @@
 name: C++ CI and Release
 
-# Триггер: запуск вручную из вкладки "Actions"
 on:
   workflow_dispatch: 
 
@@ -15,8 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Шаг для CMake add_subdirectory (если вы используете этот метод в CMakeLists.txt)
-      - name: Download GoogleTest manually
+      - name: Download GoogleTest manually (для вашего CMake add_subdirectory)
         run: |
           mkdir -p external/googletest
           cd external/googletest
@@ -41,19 +39,19 @@ jobs:
         run: |
           cd build
           cmake --build . --config Release --target package
-          # НОВОЕ: Записываем путь в файл $GITHUB_OUTPUT
+          # Записываем путь в файл $GITHUB_OUTPUT (современный метод)
           echo "package_path=$(pwd)/tests-0.0.1-Linux.deb" >> $GITHUB_OUTPUT
 
 
   create_release:
     name: 🚀 Create Release and Upload Asset
-    needs: build_and_package # Ждем успешного завершения сборки!
+    needs: build_and_package
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create Release (ИСПОЛЬЗУЕМ АКТУАЛЬНУЮ ВЕРСИЮ v4)
+      - name: Create Release (ИСПОЛЬЗУЕМ ВЕРСИЮ v3)
         id: create_release
-        uses: actions/create-release@v4 # Теперь это работает, так как мы не в контейнере!
+        uses: actions/create-release@v3 # СТАБИЛЬНАЯ ВЕРСИЯ v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -62,9 +60,9 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset (.deb file) (ИСПОЛЬЗУЕМ АКТУАЛЬНУЮ ВЕРСИЮ v4)
+      - name: Upload Release Asset (.deb file) (ИСПОЛЬЗУЕМ ВЕРСИЮ v3)
         id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v4 # Теперь это работает!
+        uses: actions/upload-release-asset@v3 # СТАБИЛЬНАЯ ВЕРСИЯ v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
