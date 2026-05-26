@@ -1,69 +1,55 @@
-name: Create Release and Build Package
+name: C++ CI
+
 on:
   push:
-    tags:
-      - 'v*' # Например, при пуше тега v1.0.0
-  workflow_dispatch: # Позволяет запустить вручную
+    branches: [main]
 
 jobs:
-  # Задание 1: Собираем проект и создаем .deb пакет
-  build_and_package:
-    name: 🏗️ Build and Package
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      package_path: ${{ steps.package.outputs.package_path }}
 
     steps:
-      - name: Checkout code with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: true # Качаем подмодули (если вы их используете)
+      # Шаг 1: Проверка репозитория
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      # Шаг 2: Скачиваем GoogleTest вручную в папку external/googletest
+      - name: Download GoogleTest manually
+        run: |
+          mkdir -p external/googletest
+          cd external/googletest
+          git init
+          git remote add origin https://github.com/google/googletest.git
+          git fetch --depth=1 origin main
+          git checkout main
+
+      # Шаг 3: Устанавливаем необходимые системные зависимости
+      - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      - name: Configure CMake
+      # Шаг 4: Конфигурация проекта с помощью CMake
+      - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build and Package
-        id: package
+      # Шаг 5: Сборка проекта и запуск тестов
+      - name: Build and Run Tests
         run: |
           cd build
-          cmake --build . --config Release --target package
-          # Сохраняем путь к файлу для следующего задания
-          echo "::set-output name=package_path::$(pwd)/tests-0.0.1-Linux.deb"
+          cmake --build . --config Release
 
-  create_release:
+      # Шаг 6: Создание .deb пакета с помощью CPack
+      - name: Build .deb Package
+        run: |
+          cd build
+          cpack -C Release
 
-    needs: build_and_package
-    name: 🚀 Create Release and Upload Asset
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Шаг 7: Загрузка созданного пакета как артефакта сборки
+      - name: Upload package as artifact
+        uses: actions/upload-artifact@v4
         with:
-          # Имя тега берем из переменной, которую задает GitHub при пуше тега
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset (.deb file)
-        id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ needs.build_and_package.outputs.package_path }}
-          asset_name: tests-0.0.1-Linux.deb
-          asset_content_type: application/vnd.debian.binary-package
+          name: deb-package
+          path: build/tests-0.0.1-Linux.deb
