@@ -1,64 +1,43 @@
-name: C++ CI and Release
-
+name: C++ CI
 on:
   push:
     branches: [main]
-
 jobs:
-  build_and_package:
-    name: 🏗️ Build and Package
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      package_path: ${{ steps.package.outputs.package_path }}
-
     steps:
-      - name: Checkout code with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: true
+      - uses: actions/checkout@v4
+      - name: Download GoogleTest manually
+        run: |
+          mkdir -p external/googletest
+          cd external/googletest
+          git init
+          git remote add origin https://github.com/google/googletest.git
+          git fetch --depth=1 origin main
+          git checkout main
 
-      - name: Install dependencies
+      - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      - name: Configure CMake
+      - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build and Package
-        id: package
+      - name: Build and Run Tests
         run: |
           cd build
-          cmake --build . --config Release --target package
-          echo "::set-output name=package_path::$(pwd)/tests-1.0.0-Linux.deb"
+          cmake --build . --config Release
 
-  create_release:
-    name: 🚀 Create Release and Upload Asset
-    needs: build_and_package
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v3  # <-- ИСПРАВЛЕНО на v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build .deb Package
+        run: |
+          cd build
+          cpack -C Release
+      - name: Upload package as artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v1.0.0 # Имя тега должно совпадать с версией в CPack!
-          release_name: Release v1.0.0
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset (.deb file)
-        id: upload-release-asset-deb
-        uses: actions/upload-release-asset@v3 # <-- ИСПРАВЛЕНО на v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ needs.build_and_package.outputs.package_path }}
-          asset_name: tests-1.0.0-Linux.deb # Имя должно совпадать с именем файла!
-          asset_content_type: application/vnd.debian.binary-package
+          name: deb-package
+          path: build/tests-0.0.1-Linux.deb
