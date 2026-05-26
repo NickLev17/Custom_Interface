@@ -9,40 +9,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Шаг 1: Проверка репозитория БЕЗ подмодулей
+      # Шаг 1: Проверка репозитория
       - uses: actions/checkout@v4
-        # Мы не используем submodules, чтобы не было конфликтов
 
-      # Шаг 2: Создаем папку и скачиваем GoogleTest вручную
+      # Шаг 2: Скачиваем GoogleTest вручную в папку external/googletest
       - name: Download GoogleTest manually
         run: |
           mkdir -p external/googletest
           cd external/googletest
           git init
           git remote add origin https://github.com/google/googletest.git
-          git fetch --depth=1 origin main # Скачиваем только последнюю версию (main branch)
+          git fetch --depth=1 origin main
           git checkout main
 
-      # Шаг 3: Установка зависимостей для сборки
+      # Шаг 3: Устанавливаем необходимые системные зависимости
       - name: Install dependencies for build
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      # Шаг 4: Настройка проекта с CMake
+      # Шаг 4: Конфигурация проекта с помощью CMake
       - name: Configure with CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      # Шаг 5: Сборка, тесты и пакет
-      - name: Build, Test and Package
+      # Шаг 5: Сборка проекта и запуск тестов
+      - name: Build and Run Tests
         run: |
           cd build
-          cmake --build . --config Release --target all package
+          cmake --build . --config Release
 
-      # Шаг 6: Загрузка .deb файла как артефакта
+      # Шаг 6: Создание .deb пакета с помощью CPack
+      - name: Build .deb Package
+        run: |
+          cd build
+          cpack -C Release
+
+      # Шаг 7: Загрузка созданного пакета как артефакта сборки
       - name: Upload package as artifact
         uses: actions/upload-artifact@v4
         with:
