@@ -1,27 +1,19 @@
 cmake_minimum_required(VERSION 3.14)
-project(MovingObjectProject
-    VERSION 1.0.0 
-)
+project(MovingObjectProject VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# --- УМНОЕ ПОДКЛЮЧЕНИЕ GOOGLETEST ---
-# Проверяем, существует ли папка external/googletest.
-# Если ДА (в GitHub Actions), подключаем как поддиректорию.
-# Если НЕТ (на локальном ПК), скачиваем через FetchContent.
-if(EXISTS "${CMAKE_SOURCE_DIR}/external/googletest")
-    message(STATUS "Папка external/googletest найдена. Использую add_subdirectory.")
-    add_subdirectory(external/googletest)
-else()
-    message(STATUS "Папка external/googletest не найдена. Использую FetchContent для скачивания.")
+# --- ПРОСТОЕ ПОДКЛЮЧЕНИЕ GOOGLETEST ЧЕРЕЗ FETCHCONTENT ---
+find_package(GTest CONFIG QUIET)
+if(NOT GTest_FOUND)
+    message(STATUS "GTest не найден. Скачиваем через FetchContent...")
     include(FetchContent)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        # Используем конкретный коммит, который точно существует
-        GIT_TAG        609221a7e85a734037d28370346fa035c3295301 
+        GIT_TAG        main # Используем ветку main, она всегда существует
     )
     FetchContent_MakeAvailable(googletest)
 endif()
@@ -47,22 +39,15 @@ gtest_discover_tests(RunTests)
 # --- НАСТРОЙКА УПАКОВЩИКА CPACK ---
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "tests")
-
-# Используем версию проекта для имени файла (например, tests-1.0.0-Linux.deb)
-set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
-set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
-set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
-
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-Linux")
 set(CPACK_PACKAGE_CONTACT "example@example.com")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "example@example.com")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "tests shared library and tools")
-
 
 # --- ИНСТРУКЦИИ ДЛЯ УСТАНОВКИ (INSTALL) ---
 install(TARGETS MovingLogicLib DESTINATION lib)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
 install(TARGETS RunTests DESTINATION bin)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/tests/ DESTINATION tests FILES_MATCHING PATTERN "*.cpp")
-
 
 include(CPack)
