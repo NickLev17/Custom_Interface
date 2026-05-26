@@ -1,13 +1,22 @@
-name: C++ CI
+name: C++ CI and Release
+
+# Триггер: запускается вручную из вкладки "Actions"
 on:
-  push:
-    branches: [main]
+  workflow_dispatch: 
+
 jobs:
-  build:
+  # Задание 1: Сборка проекта и создание .deb пакета
+  build_and_package:
+    name: 🏗️ Сборка и упаковка
     runs-on: ubuntu-latest
+    outputs:
+      package_path: ${{ steps.package.outputs.package_path }}
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Download GoogleTest manually
+      - name: Проверка репозитория
+        uses: actions/checkout@v4
+
+      - name: Скачать GoogleTest вручную
         run: |
           mkdir -p external/googletest
           cd external/googletest
@@ -16,28 +25,57 @@ jobs:
           git fetch --depth=1 origin main
           git checkout main
 
-      - name: Install dependencies for build
+      - name: Установка зависимостей
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential debhelper dpkg-dev
 
-      - name: Configure with CMake
+      - name: Настройка CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build and Run Tests
+      - name: Сборка и упаковка
+        id: package
         run: |
           cd build
-          cmake --build . --config Release
+          cmake --build . --config Release --target package
+          # Сохраняем путь к файлу для следующего задания
+          echo "::set-output name=package_path::$(pwd)/tests-0.0.1-Linux.deb"
 
-      - name: Build .deb Package
-        run: |
-          cd build
-          cpack -C Release
-      - name: Upload package as artifact
-        uses: actions/upload-artifact@v4
+
+  # Задание 2: Создание релиза и загрузка файла
+  create_release:
+    # Это задание зависит от успешного завершения первого!
+    needs: build_and_package 
+    name: 🚀 Создание релиза и загрузка актива
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Создать новый релиз
+        id: create_release
+        uses: actions/create-release@v3 # Используем стабильную версию v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: deb-package
-          path: build/tests-0.0.1-Linux.deb
+          # Имя тега (может быть любым, например, номер сборки)
+          tag_name: 'v0.0.1' 
+          release_name: Auto-release build ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Загрузить .deb файл в релиз
+        id: upload-release-asset-deb
+        uses: actions/upload-release-asset@v3 # Используем стабильную версию v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Берем ссылку для загрузки из шага создания релиза
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          
+          # Берем путь к файлу из шага сборки (межзадательная связь)
+          asset_path: ${{ needs.build_and_package.outputs.package_path }}
+          
+          asset_name: tests-0.0.1-Linux.deb # Имя файла в релизе
+          asset_content_type: application/vnd.debian.binary-package
